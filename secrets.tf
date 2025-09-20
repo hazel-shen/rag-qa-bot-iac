@@ -23,3 +23,17 @@ resource "aws_secretsmanager_secret_version" "rds" {
     dbname   = "demo"
   })
 }
+
+############################
+# GitHub CI/CD
+############################
+resource "aws_secretsmanager_secret" "ghcr" {
+  name        = var.ghcr_secret_name
+  description = "GHCR PAT for pulling private images"
+}
+
+resource "aws_secretsmanager_secret_version" "ghcr_v1" {
+  count         = var.ghcr_pat_value == null ? 0 : 1
+  secret_id     = aws_secretsmanager_secret.ghcr.id
+  secret_string = var.ghcr_pat_value
+}

@@ -95,3 +95,29 @@ resource "aws_instance" "app" {
     ]
   }
 }
+
+
+############################
+# GitHub CI/CD
+############################
+# 給 EC2 Instance Role 讀該 Secret 的權限
+resource "aws_iam_policy" "ec2_read_ghcr_secret" {
+  name = "ec2-read-ghcr-secret"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect : "Allow",
+        Action : [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ],
+        Resource : aws_secretsmanager_secret.ghcr.arn
+      }
+    ]
+  })
+}
+resource "aws_iam_role_policy_attachment" "ec2_read_ghcr_secret_attach" {
+  role       = aws_iam_role.ec2_role.name # 你的 EC2 角色名稱
+  policy_arn = aws_iam_policy.ec2_read_ghcr_secret.arn
+}

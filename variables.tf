@@ -41,3 +41,45 @@ variable "rds_port" {
   default     = 5432
   type        = number
 }
+
+
+############################
+# GitHub CI/CD
+############################
+# 你的 GitHub 倉庫（org/user 與 repo 名）
+variable "github_owner" {
+  description = "GitHub org or user"
+  default     = "hazel-shen"
+  type        = string
+}
+variable "github_repo" {
+  description = "GitHub repository name"
+  default     = "rag-qa-bot"
+  type        = string
+}
+
+# 允許能 AssumeRole 的分支（預設只允許 main）
+variable "allowed_branches" {
+  description = "Branches allowed to assume the deploy role"
+  type        = list(string)
+  default     = ["main"]
+}
+
+# （可選）限制能被下指令的 EC2 實例 IDs（不填就用 *，先跑通再收斂）
+variable "target_instance_ids" {
+  description = "EC2 instance IDs allowed for SSM SendCommand. Empty -> allow all (simplest for first run)."
+  type        = list(string)
+  default = [
+    "i-0be210d262d4eeb47"
+  ]
+}
+
+variable "ghcr_secret_name" {
+  default = "demo/ghcr"
+}
+
+variable "ghcr_pat_value" {
+  type      = string
+  sensitive = true
+  default   = null
+}
