@@ -20,104 +20,72 @@ iac-demo/
 └── secrets.app.tf          # Secrets Manager：後端應用用
 ```
 
-## Infra 架構圖 (TODO 內容待修)
+## Infra 架構圖
 
 ```mermaid
+%%{init: {
+  "flowchart": { "htmlLabels": true, "padding": 12, "nodeSpacing": 30, "rankSpacing": 40 },
+  "themeVariables": { "fontSize": "16px", "lineHeight": "1.3" }
+}}%%
 flowchart TB
- subgraph CF["Cloudflare Zero Trust"]
-    direction TB
-        ACC["Access - 身份驗證"]
-        PAGES["Pages - Frontend Hosting"]
-        WORKER["Workers - API Proxy"]
-        TUN["Tunnel - 安全連線"]
-  end
- subgraph GH["GitHub"]
-    direction TB
-        SRC["Source Repo - Private"]
-        ACT["Actions - CI CD"]
-        REG["GHCR Registry - Container Images"]
-  end
- subgraph PUB["Public Subnet ap-northeast-1a"]
-        APP["EC2 t4g.small\nEBS gp3 30GB\nNo Public IP"]
-        SSM["SSM Agent"]
-  end
- subgraph PRI["Private Subnet ap-northeast-1a"]
-        RDS["RDS PostgreSQL\ndb.t3.micro\n20GB"]
-        REDIS["ElastiCache Redis\nt4g.micro"]
-  end
- subgraph VPC["VPC"]
-        IGW["Internet Gateway"]
-        PUB
-        PRI
-  end
- subgraph AWS["AWS ap-northeast-1"]
-    direction TB
-        VPC
-        SM["Secrets Manager\n3 secrets: RDS Redis App"]
-        CW["CloudWatch\nLogs and Metrics"]
-  end
- subgraph EXT["External Services"]
-        OAI["OpenAI API"]
-        GRAF["Grafana Cloud\nDashboard"]
-  end
- subgraph COSTS["Cost Hotspots"]
-        DTO["Data Transfer Out\n$0.09 per GB"]
-        CWL["CloudWatch Logs\n$0.50 per GB"]
-        SNAP["RDS Snapshots\n$0.095 per GB per month"]
-  end
-    U["User"] -- HTTPS --> ACC
-    ACC --> PAGES
-    PAGES -- API call --> WORKER
-    WORKER -- via Tunnel --> TUN
-    TUN -- Secure connection --> APP
-    APP -- API call --> OAI
-    APP -- Database query --> RDS
-    APP -- Cache ops --> REDIS
-    APP -. Fetch secrets .-> SM
-    SRC --> ACT
-    ACT --> REG
-    ACT -- SSM SendCommand --> SSM
-    SSM -. Deploy app .-> APP
-    APP -- Metrics Logs --> CW
-    APP -- Optional metrics --> GRAF
-    IGW -- Internet egress --- PUB
-    PUB -. Internal route .-> PRI
-    APP -. Egress traffic .-> DTO
-    APP -. Application logs .-> CWL
-    RDS -. Auto backups .-> SNAP
+  U((👤 本機開發者))
 
-     U:::user
-     ACC:::cloudflare
-     PAGES:::cloudflare
-     WORKER:::cloudflare
-     TUN:::cloudflare
-     SRC:::github
-     ACT:::github
-     REG:::github
-     IGW:::aws
-     APP:::service
-     SSM:::service
-     RDS:::service
-     REDIS:::service
-     SM:::service
-     CW:::service
-     OAI:::external
-     GRAF:::external
-     DTO:::cost
-     DTO:::cost
-     CWL:::cost
-     CWL:::cost
-     SNAP:::cost
-     SNAP:::cost
-     PUB:::aws
-     PRI:::aws
-    classDef user fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#0d47a1
-    classDef cloudflare fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#e65100
-    classDef github fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
-    classDef aws fill:#ede7f6,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
-    classDef service fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
-    classDef external fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#4a148c
-    classDef cost fill:#ffebee,stroke:#d32f2f,stroke-width:3px,color:#b71c1c
+  subgraph AWS["AWS ap-northeast-1"]
+    direction TB
+
+    subgraph VPC["VPC (default)"]
+      IGW["Internet Gateway"]
+
+      subgraph PUB["Public Subnet (1a)"]
+        APP["EC2 t4g.medium<br/>EBS gp3 30 GiB (Free Tier)<br/>Public IP 綁定（EIP）"]
+        SSMNODE["SSM Agent"]
+      end
+
+      subgraph PRI_A["Private Subnet A (1a)"]
+        REDIS["ElastiCache Redis 7.0<br/>cache.t3.micro ($0.0208/hr)"]
+      end
+    end
+
+    SM["Secrets Manager<br/>2–3 secrets（$0.40/secret/月）"]
+    PARAM["SSM Parameter Store（標準）<br/>Always Free"]
+    S3["Amazon S3<br/>5 GB（Free Tier, 12 個月）"]
+    CW["CloudWatch Metrics<br/>(Free)"]
+  end
+
+  APP --> |Cache ops| REDIS
+  APP -.-> |讀取機密| SM
+  APP -.-> |讀取設定/參數| PARAM
+  APP --> |讀/寫索引與小檔| S3
+  APP --> |Service metrics| CW
+
+  IGW --- |Internet egress| PUB
+  PUB -.-> |Internal route| PRI_A
+
+  %% 使用者連線（兩行，避免 parser 合併）
+  U -.-> |Session Manager via SSM| SSMNODE
+  SSMNODE --> APP
+
+  subgraph COSTS["Cost Hotspots"]
+    DTO["Data Transfer Out<br/>$0.12 per GB（>100GB/月 部分）"]
+  end
+
+  APP -.-> |回應外部用戶流量| DTO
+
+  classDef aws           fill:#F5F5F5,stroke:#0072B2,stroke-width:2px,color:#003865
+  classDef service_ec2   fill:#E7F3FD,stroke:#0072B2,stroke-width:2px,color:#003865
+  classDef service_redis fill:#FFF3D6,stroke:#E69F00,stroke-width:2px,color:#8A5A00
+  classDef service_misc  fill:#FBE5F1,stroke:#CC79A7,stroke-width:2px,color:#7A1B60
+  classDef cost          fill:#FDE2D5,stroke:#D55E00,stroke-width:3px,color:#7A2E00
+  classDef user          fill:#FFFFFF,stroke:#000000,stroke-width:2px,color:#000000
+
+  class VPC,IGW,PUB,PRI_A aws
+  class APP service_ec2
+  class SSMNODE,SM,PARAM,S3,CW service_misc
+  class REDIS service_redis
+  class DTO cost
+  class U user
+
+  style AWS fill:#FAFAFA,stroke:#0072B2,stroke-width:2px,color:#003865
 ```
 
 ## 執行步驟
