@@ -1,4 +1,4 @@
-
+# EC2
 output "ec2_instance_id" {
   description = "The ID of the EC2 instance"
   value       = aws_instance.app.id
@@ -25,23 +25,23 @@ output "ec2_ssm_target" {
 }
 
 # 輸出 RDS 連接資訊（方便應用程式使用）
-output "rds_endpoint" {
-  description = "RDS instance endpoint"
-  value       = aws_db_instance.postgres.endpoint
-  sensitive   = true
-}
+# output "rds_endpoint" {
+#   description = "RDS instance endpoint"
+#   value       = aws_db_instance.postgres.endpoint
+#   sensitive   = true
+# }
 
-output "rds_port" {
-  description = "RDS instance port"
-  value       = aws_db_instance.postgres.port
-  sensitive   = true
-}
+# output "rds_port" {
+#   description = "RDS instance port"
+#   value       = aws_db_instance.postgres.port
+#   sensitive   = true
+# }
 
-output "rds_db_name" {
-  description = "Database name"
-  value       = aws_db_instance.postgres.db_name
-  sensitive   = true
-}
+# output "rds_db_name" {
+#   description = "Database name"
+#   value       = aws_db_instance.postgres.db_name
+#   sensitive   = true
+# }
 
 
 # Redis
@@ -53,4 +53,9 @@ output "redis_endpoint" {
 output "redis_port" {
   description = "Redis port"
   value       = 6379
+}
+
+# s3
+output "bucket_name" {
+  value = aws_s3_bucket.this.bucket
 }

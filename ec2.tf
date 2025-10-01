@@ -40,6 +40,51 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   role = aws_iam_role.ec2_role.name
 }
 
+# s3 Get objects policy
+data "aws_iam_policy_document" "s3_get_prefix" {
+
+  # 不加沒辦法複製
+  statement {
+    sid       = "ListOnlyThatPrefix"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${aws_s3_bucket.this.id}"]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values = [
+        "${var.iam_s3_policy_prefix}", # e.g. "tmp/"
+        "${var.iam_s3_policy_prefix}*" # e.g. "tmp/*"
+      ]
+    }
+  }
+
+
+  statement {
+    sid    = "AllowGetObjectOnlyForPrefix"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject"
+    ]
+
+    resources = [
+      "arn:aws:s3:::${aws_s3_bucket.this.id}/${var.iam_s3_policy_prefix}*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "s3_get_prefix" {
+  name        = "ec2-s3-get-prefix"
+  description = "Allow EC2 to GetObject from ${aws_s3_bucket.this.id}/${var.iam_s3_policy_prefix}"
+  policy      = data.aws_iam_policy_document.s3_get_prefix.json
+}
+
+resource "aws_iam_role_policy_attachment" "attach" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = aws_iam_policy.s3_get_prefix.arn
+}
+
 ########################################
 # Security Group（Inbound 0 條，Egress 全開）
 ########################################
@@ -64,7 +109,7 @@ resource "aws_security_group" "ec2_sg" {
 ########################################
 resource "aws_instance" "app" {
   ami           = data.aws_ami.al2023_arm.id
-  instance_type = "t4g.small"
+  instance_type = var.ec2_instance_type
   subnet_id     = aws_subnet.public_a.id
 
   # 有公網 IP，才能出網拉 GHCR / Cloudflare Tunnel
@@ -112,7 +157,10 @@ resource "aws_iam_policy" "ec2_read_ghcr_secret" {
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ],
-        Resource : aws_secretsmanager_secret.ghcr.arn
+        Resource : [
+          "${aws_secretsmanager_secret.ghcr.arn}",
+          "${aws_secretsmanager_secret.app.arn}"
+        ]
       }
     ]
   })

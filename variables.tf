@@ -74,6 +74,10 @@ variable "target_instance_ids" {
   ]
 }
 
+############################
+# GitHub CI/CD
+############################
+
 variable "ghcr_secret_name" {
   default = "demo/ghcr"
 }
@@ -82,4 +86,36 @@ variable "ghcr_pat_value" {
   type      = string
   sensitive = true
   default   = null
+}
+
+############################
+# RAG-FAQ-BOT App Secret
+############################
+
+variable "rag_faq_bot_app_secret_name" {
+  default = "demo/app"
+}
+
+variable "rag_faq_bot_app_secret_value" {
+  type      = string
+  sensitive = true
+  default   = null
+}
+
+############################
+# s3 bucket
+############################
+variable "bucket_name_prefix" {
+  default = "rag-faq-bot"
+}
+
+############################
+# EC2
+############################
+variable "ec2_instance_type" {
+  default = "t4g.medium" # 不用 medium 跑不起來
+}
+
+variable "iam_s3_policy_prefix" {
+  default = "tmp"
 }
